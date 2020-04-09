@@ -2,17 +2,11 @@ library(funModeling)
 library(caret)
 library(zoo)
 library(forcats)
+library(DescTools)
 library(Boruta)
-# library(ROSE)
-# library(DMwR)
-
-# Check class imbalance
-table(train_dataset$isFraud)
-prop.table(table(train_dataset$isFraud))
-
-# Quartiles
-quantile(train_dataset$TransactionAmt)
-quantile(train_dataset$TransactionDT)
+library(earth)
+library(ROSE)
+library(DMwR)
 
 # Set class and categorical features as factor, discretize continuous variables and remove ID
 train_processed <- 
@@ -33,15 +27,18 @@ train_processed <-
 status <- df_status(train_processed)
 
 # Remove NA and disperse columns
-na_cols <- status %>%
+na_cols <- 
+  status %>%
   filter(p_na > 50) %>%
   select(variable)
 
-dif_cols <- status %>%
+dif_cols <- 
+  status %>%
   filter(unique > 0.8 * nrow(train_processed)) %>%
   select(variable)
 
-train_reduced <- train_processed %>%
+train_reduced <- 
+  train_processed %>%
   select(-one_of(
     bind_rows(list(na_cols, dif_cols))$variable
     ))
@@ -52,17 +49,40 @@ train_replaced <-
   mutate_if(is.numeric, na.aggregate) %>%
   mutate_if(is.factor, fct_explicit_na, na_level = "Unknown")
 
-# Correlations
-cor(train_replaced[sapply(train_replaced, is.numeric)])
+# Remove highly correlated features
+na_cor_cols <-
+  df_status(train_replaced, print_results = FALSE) %>%
+  filter(type == "numeric") %>%
+  filter(q_zeros == 0 | p_zeros == 100.0) %>%
+  select(variable)
 
-# Remove highly correlated variables
-cor_cols <-
+corr_matrix <-
   train_replaced %>%
   select_if(is.numeric) %>%
-  select(one_of(findCorrelation(cor(na.omit(.)), cutoff = 0.7)))
+  select(-one_of(na_cor_cols$variable)) %>%
+  cor(.)
 
-boruta_output <- Boruta(isFraud ~ ., data = train_replaced, doTrace = 2, maxRuns = 5)
+train_reduced_cors <-
+  train_replaced %>%
+  select(-one_of(findCorrelation(corr_matrix, cutoff = 0.8, names = TRUE)))
+  
+# Feature selection with Boruta
+# boruta_output <- Boruta(isFraud ~ ., data = train_replaced, doTrace = 2, maxRuns = 5)
+
+# Feature selection with MARS
+# mars <- earth(isFraud ~ ., data = train_reduced_cors)
+
+# Check class imbalance
+table(train_reduced_cors$isFraud)
+prop.table(table(train_reduced_cors$isFraud))
 
 # Generate synthetic data to balance dataset
-# train_balanced <- ROSE(isFraud ~ ., data = train_replaced, seed = 1)$data
-# train_balanced <- SMOTE(isFraud ~ ., train_replaced, perc.over = 600, perc.under = 100)
+train_balanced_rose <- ROSE(isFraud ~ ., data = train_reduced_cors, seed = 1)$data
+train_balanced_smote <- SMOTE(isFraud ~ ., as.data.frame(train_reduced_cors))
+
+# Check balance after synthetic data generation
+table(train_balanced_rose$isFraud)
+prop.table(table(train_balanced_rose$isFraud))
+
+table(train_balanced_smote$isFraud)
+prop.table(table(train_balanced_smote$isFraud))
