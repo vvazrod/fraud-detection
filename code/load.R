@@ -8,9 +8,8 @@ if (!file.exists("data/train_innerjoin.csv") || !file.exists("data/test_innerjoi
   test_identity <- read_csv("data/test_identity.csv")
   
   # Merge tables
-  train_dataset <- merge(train_transaction, train_identity, by="TransactionID") %>%
-    sample_n(size = 10000)
-  test_dataset <- merge(test_transaction, test_identity, by="TransactionID")
+  train_dataset <- merge(train_transaction, train_identity, by = "TransactionID")
+  test_dataset <- merge(test_transaction, test_identity, by = "TransactionID")
   
   # Write merged datasets
   write_csv(train_dataset, "data/train_innerjoin.csv")
