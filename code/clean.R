@@ -1,15 +1,15 @@
+library(tidyverse)
 library(funModeling)
 library(caret)
 library(zoo)
 library(forcats)
 library(DescTools)
 library(Boruta)
-library(earth)
 library(ROSE)
 library(DMwR)
 
-# Set class and categorical features as factor, discretize continuous variables and remove ID
-train_processed <- 
+# Set class and categorical varaibles as factor, discretize continuous variables and remove ID
+data_discretized <- 
   train_dataset %>%
   mutate(isFraud = as.factor(ifelse(isFraud == 1, "Yes", "No"))) %>%
   mutate_at(c("ProductCD", "P_emaildomain", "R_emaildomain", "DeviceType", "DeviceInfo"), factor) %>%
@@ -23,66 +23,61 @@ train_processed <-
     ) %>%
   select(-TransactionID)
 
-# Check columns' status
-status <- df_status(train_processed)
+# Check dataset status
+status <- df_status(data_discretized)
 
-# Remove NA and disperse columns
+# Remove NA and high/low dispersity variables
 na_cols <- 
   status %>%
   filter(p_na > 50) %>%
   select(variable)
 
-dif_cols <- 
+high_dif_cols <- 
   status %>%
-  filter(unique > 0.8 * nrow(train_processed)) %>%
+  filter(unique > 0.8 * nrow(data_discretized)) %>%
   select(variable)
 
-train_reduced <- 
-  train_processed %>%
+low_dif_cols <-
+  status %>%
+  filter(type == "numeric" & unique < 0.01 * nrow(data_discretized)) %>%
+  select(variable)
+
+data_reduced <-
+  data_discretized %>%
   select(-one_of(
-    bind_rows(list(na_cols, dif_cols))$variable
+    bind_rows(list(na_cols, high_dif_cols, low_dif_cols))$variable
     ))
 
 # Replace NAs
-train_replaced <-
-  train_reduced %>%
+data_replaced <-
+  data_reduced %>%
   mutate_if(is.numeric, na.aggregate) %>%
   mutate_if(is.factor, fct_explicit_na, na_level = "Unknown")
 
-# Remove highly correlated features
-na_cor_cols <-
-  df_status(train_replaced, print_results = FALSE) %>%
-  filter(type == "numeric") %>%
-  filter(q_zeros == 0 | p_zeros == 100.0) %>%
-  select(variable)
-
+# Calculate correlation matrix and remove highly correlated variables
 corr_matrix <-
-  train_replaced %>%
+  data_replaced %>%
   select_if(is.numeric) %>%
-  select(-one_of(na_cor_cols$variable)) %>%
   cor(.)
 
-train_reduced_cors <-
-  train_replaced %>%
+data_final <-
+  data_replaced %>%
   select(-one_of(findCorrelation(corr_matrix, cutoff = 0.8, names = TRUE)))
   
 # Feature selection with Boruta
-# boruta_output <- Boruta(isFraud ~ ., data = train_replaced, doTrace = 2, maxRuns = 5)
-
-# Feature selection with MARS
-# mars <- earth(isFraud ~ ., data = train_reduced_cors)
+# boruta_output <- Boruta(isFraud ~ ., data = train_reduced_cors, doTrace = 2)
 
 # Check class imbalance
-table(train_reduced_cors$isFraud)
-prop.table(table(train_reduced_cors$isFraud))
+table(data_final$isFraud)
+prop.table(table(data_final$isFraud))
 
 # Generate synthetic data to balance dataset
-train_balanced_rose <- ROSE(isFraud ~ ., data = train_reduced_cors, seed = 1)$data
-train_balanced_smote <- SMOTE(isFraud ~ ., as.data.frame(train_reduced_cors))
+data_balanced_rose <- ROSE(isFraud ~ ., data = data_final, seed = 1)$data
+data_balanced_smote <- SMOTE(isFraud ~ ., as.data.frame(data_final))
 
 # Check balance after synthetic data generation
-table(train_balanced_rose$isFraud)
-prop.table(table(train_balanced_rose$isFraud))
+table(data_balanced_rose$isFraud)
+prop.table(table(data_balanced_rose$isFraud))
 
-table(train_balanced_smote$isFraud)
-prop.table(table(train_balanced_smote$isFraud))
+table(data_balanced_smote$isFraud)
+prop.table(table(data_balanced_smote$isFraud))
