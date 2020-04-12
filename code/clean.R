@@ -65,15 +65,25 @@ data_final <-
   select(-one_of(findCorrelation(corr_matrix, cutoff = 0.8, names = TRUE)))
   
 # Feature selection with Boruta
-# boruta_output <- Boruta(isFraud ~ ., data = train_reduced_cors, doTrace = 2)
+boruta_output <- Boruta(isFraud ~ ., data = data_final, doTrace = 2)
+
+imp_cols <-
+  attStats(boruta_output) %>%
+  rownames_to_column(var = "variable") %>%
+  top_n(10, meanImp) %>%
+  select(variable)
+
+data_boruta <-
+  data_final %>%
+  select(isFraud, one_of(imp_cols$variable))
 
 # Check class imbalance
-table(data_final$isFraud)
-prop.table(table(data_final$isFraud))
+table(data_boruta$isFraud)
+prop.table(table(data_boruta$isFraud))
 
 # Generate synthetic data to balance dataset
-data_balanced_rose <- ROSE(isFraud ~ ., data = data_final, seed = 1)$data
-data_balanced_smote <- SMOTE(isFraud ~ ., as.data.frame(data_final))
+data_balanced_rose <- ROSE(isFraud ~ ., data = data_boruta, seed = 1)$data
+data_balanced_smote <- SMOTE(isFraud ~ ., as.data.frame(data_boruta))
 
 # Check balance after synthetic data generation
 table(data_balanced_rose$isFraud)
