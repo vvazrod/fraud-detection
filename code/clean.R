@@ -34,7 +34,7 @@ status <- df_status(data_discretized)
 status %>%
   ggplot(aes(x = variable, y = p_na)) +
   geom_col(show.legend = FALSE) +
-  labs(title = "Porcentaje de NAs por variable", y = "Porcentaje") +
+  labs(y = "Porcentaje") +
   theme(
     plot.title = element_text(hjust = 0.5),
     axis.title.x = element_blank(),
@@ -46,7 +46,7 @@ status %>%
 status %>%
   ggplot(aes(x = variable, y = (unique / nrow(data_discretized) * 100))) +
   geom_col(show.legend = FALSE) +
-  labs(title = "Porcentaje de dispersión por variable", y = "Porcentaje") +
+  labs(y = "Porcentaje") +
   theme(
     plot.title = element_text(hjust = 0.5),
     axis.title.x = element_blank(),
@@ -59,7 +59,7 @@ status %>%
   filter(unique < 0.6 * nrow(data_discretized)) %>%
   ggplot(aes(x = variable, y = (unique / nrow(data_discretized) * 100))) +
   geom_col(show.legend = FALSE) +
-  labs(title = "Porcentaje de dispersión por variable", y = "Porcentaje") +
+  labs(y = "Porcentaje") +
   theme(
     plot.title = element_text(hjust = 0.5),
     axis.title.x = element_blank(),
@@ -106,7 +106,7 @@ corr_matrix %>%
   melt() %>%
   ggplot(aes(x = Var1, y = Var2, fill = value)) +
   geom_tile() +
-  labs(title = "Correlación entre variables numéricas", fill = "Valor") +
+  labs(fill = "Valor") +
   theme(
     plot.title = element_text(hjust = 0.5),
     axis.title = element_blank(),
